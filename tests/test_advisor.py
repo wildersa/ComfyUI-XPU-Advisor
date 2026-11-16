@@ -26,16 +26,21 @@ def _base_env(**overrides):
         "free_vram_mb": 20000.0,
         "free_vram_ratio": 0.61,
         "reserved_vram_mb": 1000.0,
+        "shared_vram_mb": 120.0,
         "dynamic_vram_enabled": True,
         "reserve_vram_gb": None,
-        "attn_backend": "torch",
+        "disable_pinned_memory": False,
+        "attn_backend": "cute",
         "omnixpu_enable": "1",
         "omni_kernel_version": "0.2.0b3+torch213.bmg",
+        "omni_xpu_target": "bmg",
         "aimdo_xpu_version": "0.6.0",
         "kitchen_xpu_version": "0.2.41",
         "kitchen_xpu_available": True,
         "omnixpu_extension_present": True,
         "has_legacy_xpu_backend": False,
+        "has_loaded_fp8_diffusion": False,
+        "loaded_fp8_model_names": "",
     }
     env.update(overrides)
     return env
@@ -127,6 +132,32 @@ class AdvisorRulesTest(unittest.TestCase):
 
         hits = match_log_message("Selected mixed precision dtype float8_e4m3fn", _base_env(), self.rules)
         self.assertEqual([h["id"] for h in hits], ["log_fp8_emulated_ops"])
+
+    def test_shared_vram_spill_pinned_memory_and_bmg_torch_rules(self):
+        no_dyn_ids = {
+            f["id"]
+            for f in evaluate_environment(
+                _base_env(dynamic_vram_enabled=False, shared_vram_mb=1500.0), self.rules
+            )
+        }
+        self.assertIn("env_shared_vram_spill_no_dyn", no_dyn_ids)
+        self.assertNotIn("env_shared_vram_spill_dyn", no_dyn_ids)
+
+        dyn_ids = {
+            f["id"]
+            for f in evaluate_environment(
+                _base_env(
+                    shared_vram_mb=900.0,
+                    disable_pinned_memory=True,
+                    attn_backend="torch",
+                    omni_xpu_target="bmg",
+                ),
+                self.rules,
+            )
+        }
+        self.assertIn("env_shared_vram_spill_dyn", dyn_ids)
+        self.assertIn("env_disable_pinned_memory", dyn_ids)
+        self.assertIn("env_bmg_attn_torch", dyn_ids)
 
 
 if __name__ == "__main__":

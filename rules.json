@@ -91,6 +91,62 @@
       "tip": "XPU memory headroom is tight and --reserve-vram is unset. If you hit OOM during VAE/sampling, try adding --reserve-vram 2."
     },
     {
+      "id": "env_shared_vram_spill_no_dyn",
+      "scope": "env",
+      "exclusive_group": "shared_vram",
+      "severity": "warn",
+      "toast": true,
+      "when": {
+        "platform": "win32",
+        "xpu_available": true,
+        "dynamic_vram_enabled": false,
+        "shared_vram_mb": { "gte": 768 }
+      },
+      "title": "Windows Shared GPU Memory spike ({shared_vram_mb} MB)",
+      "tip": "ComfyUI overflowed dedicated XPU VRAM into system RAM over PCIe (WDDM shared memory), which can severely slow down sampling. Enable --enable-dynamic-vram in ComfyUI launch arguments."
+    },
+    {
+      "id": "env_shared_vram_spill_dyn",
+      "scope": "env",
+      "exclusive_group": "shared_vram",
+      "severity": "warn",
+      "toast": true,
+      "when": {
+        "platform": "win32",
+        "xpu_available": true,
+        "dynamic_vram_enabled": true,
+        "shared_vram_mb": { "gte": 768 }
+      },
+      "title": "Windows Shared GPU Memory spike ({shared_vram_mb} MB)",
+      "tip": "Dedicated XPU VRAM spilled into WDDM Shared GPU Memory even with DynamicVRAM active. Try adding --reserve-vram 2 (or 4 for heavy video) or using smaller int8_convrot weights."
+    },
+    {
+      "id": "env_disable_pinned_memory",
+      "scope": "env",
+      "severity": "warn",
+      "toast": false,
+      "when": {
+        "xpu_available": true,
+        "dynamic_vram_enabled": true,
+        "disable_pinned_memory": true
+      },
+      "title": "Host RAM weight staging blocked (--disable-pinned-memory)",
+      "tip": "Running DynamicVRAM with --disable-pinned-memory disables host RAM staging, forcing large models to re-read weights from disk during swaps."
+    },
+    {
+      "id": "env_bmg_attn_torch",
+      "scope": "env",
+      "severity": "info",
+      "toast": false,
+      "when": {
+        "xpu_available": true,
+        "omni_xpu_target": "bmg",
+        "attn_backend": "torch"
+      },
+      "title": "Using PyTorch SDPA on Intel Arc Battlemage",
+      "tip": "OMNI_ATTN_BACKEND is set to 'torch' (Windows default). Setting OMNI_ATTN_BACKEND=cute on Battlemage (bmg) typically improves speed ~10% (switch back to 'torch' if visual artifacts appear)."
+    },
+    {
       "id": "env_fp8_diffusion_loaded",
       "scope": "env",
       "exclusive_group": "fp8_quant",

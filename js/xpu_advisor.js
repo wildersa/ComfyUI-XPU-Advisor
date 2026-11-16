@@ -197,11 +197,12 @@ class AdvisorModal {
             env.total_vram_mb != null
                 ? `${env.free_vram_mb} MB free / ${env.total_vram_mb} MB total`
                 : "VRAM N/A";
+        const sharedText = env.shared_vram_mb != null ? ` | Shared: ${env.shared_vram_mb} MB` : "";
         summaryBox.appendChild(
             el(
                 "div",
                 { color: "#b9c0ce" },
-                `PyTorch: ${env.torch_version || "N/A"} | Python: ${env.python_version || "N/A"} | ${vramText}`
+                `PyTorch: ${env.torch_version || "N/A"} | Python: ${env.python_version || "N/A"} | ${vramText}${sharedText}`
             )
         );
         summaryBox.appendChild(
@@ -349,20 +350,38 @@ app.registerExtension({
             }
         });
 
-        try {
-            const resp = await apiFetch("/xpu_advisor/status");
-            if (resp.ok) {
+        const seenEnvToasts = new Set();
+
+        const syncStatus = async () => {
+            try {
+                const resp = await apiFetch("/xpu_advisor/status");
+                if (!resp.ok) {
+                    return;
+                }
                 const snap = await resp.json();
                 latestSnap = snap;
                 updateBadge(snap);
                 for (const item of snap.advisories || []) {
-                    if (item.toast) {
+                    if (item.toast && !seenEnvToasts.has(item.id)) {
+                        seenEnvToasts.add(item.id);
                         pushToast(item);
                     }
                 }
+                if (modal.overlay && modal.overlay.style.display === "flex") {
+                    modal.render(snap);
+                }
+            } catch (err) {
+                console.warn("[XPUAdvisor] Status sync failed:", err);
             }
-        } catch (err) {
-            console.warn("[XPUAdvisor] Initial status fetch failed:", err);
-        }
+        };
+
+        api.addEventListener("execution_success", () => {
+            syncStatus();
+        });
+        api.addEventListener("execution_error", () => {
+            syncStatus();
+        });
+
+        await syncStatus();
     },
 });

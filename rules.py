@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ctypes
 import importlib.metadata
 import json
 import os
@@ -118,6 +119,59 @@ def _detect_loaded_fp8_models(torch_mod: Any) -> tuple[bool, str]:
     return bool(names), ", ".join(names)
 
 
+def _read_windows_shared_vram_mb() -> float | None:
+    """Read this process's Windows WDDM Shared GPU Memory usage in MB via PDH."""
+    if sys.platform != "win32":
+        return None
+    try:
+        from ctypes import wintypes
+
+        class _PdhCounterItemW(ctypes.Structure):
+            _fields_ = [
+                ("szName", wintypes.LPWSTR),
+                ("status", wintypes.DWORD),
+                ("val", ctypes.c_double),
+            ]
+
+        pdh = ctypes.WinDLL("pdh")
+        query = wintypes.HANDLE()
+        counter = wintypes.HANDLE()
+        if pdh.PdhOpenQueryW(None, 0, ctypes.byref(query)) != 0:
+            return None
+        try:
+            counter_path = rf"\GPU Process Memory(pid_{os.getpid()}_*)\Shared Usage"
+            if pdh.PdhAddEnglishCounterW(query, counter_path, 0, ctypes.byref(counter)) != 0:
+                return None
+            if pdh.PdhCollectQueryData(query) != 0:
+                return None
+            sz = wintypes.DWORD(0)
+            cnt = wintypes.DWORD(0)
+            pdh.PdhGetFormattedCounterArrayW(
+                counter, 0x200, ctypes.byref(sz), ctypes.byref(cnt), None
+            )
+            if sz.value == 0:
+                return 0.0
+            buf = (ctypes.c_byte * sz.value)()
+            if pdh.PdhGetFormattedCounterArrayW(
+                counter, 0x200, ctypes.byref(sz), ctypes.byref(cnt), buf
+            ) != 0:
+                return None
+            arr = ctypes.cast(buf, ctypes.POINTER(_PdhCounterItemW))
+            peak_bytes = max(
+                (
+                    float(arr[i].val)
+                    for i in range(cnt.value)
+                    if arr[i].status in (0, 1)
+                ),
+                default=0.0,
+            )
+            return round(peak_bytes / (1024 * 1024), 1)
+        finally:
+            pdh.PdhCloseQuery(query)
+    except Exception:
+        return None
+
+
 def collect_environment(custom_nodes_dirs: list[Path] | None = None) -> dict[str, Any]:
     """Inspect current Python, PyTorch XPU, CLI flags, VRAM, and packages safely."""
     py_ver = f"{sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}"
@@ -131,11 +185,14 @@ def collect_environment(custom_nodes_dirs: list[Path] | None = None) -> dict[str
         "free_vram_mb": None,
         "free_vram_ratio": None,
         "reserved_vram_mb": None,
+        "shared_vram_mb": None,
         "dynamic_vram_enabled": False,
         "reserve_vram_gb": None,
+        "disable_pinned_memory": False,
         "attn_backend": os.environ.get("OMNI_ATTN_BACKEND", "torch"),
         "omnixpu_enable": os.environ.get("OMNIXPU_ENABLE", "1"),
         "omni_kernel_version": _package_version("omni-xpu-kernel"),
+        "omni_xpu_target": None,
         "aimdo_xpu_version": _package_version("comfy-aimdo-xpu-runtime"),
         "kitchen_xpu_version": _package_version("comfy-kitchen-xpu-runtime"),
         "kitchen_xpu_available": False,
@@ -151,6 +208,12 @@ def collect_environment(custom_nodes_dirs: list[Path] | None = None) -> dict[str
         snapshot["dynamic_vram_enabled"] = bool(getattr(args, "enable_dynamic_vram", False))
         raw_reserve = getattr(args, "reserve_vram", None)
         snapshot["reserve_vram_gb"] = float(raw_reserve) if raw_reserve is not None else None
+        snapshot["disable_pinned_memory"] = bool(getattr(args, "disable_pinned_memory", False))
+
+    omni_mod = sys.modules.get("omni_xpu_kernel")
+    if omni_mod is not None:
+        target = getattr(omni_mod, "__xpu_target__", None)
+        snapshot["omni_xpu_target"] = str(target) if target is not None else None
 
     torch_mod = sys.modules.get("torch")
     if torch_mod is None:
@@ -177,6 +240,7 @@ def collect_environment(custom_nodes_dirs: list[Path] | None = None) -> dict[str
                 if total_b > 0:
                     snapshot["free_vram_ratio"] = round(free_b / total_b, 4)
                 snapshot["reserved_vram_mb"] = round(xpu.memory_reserved(idx) / (1024 * 1024), 1)
+                snapshot["shared_vram_mb"] = _read_windows_shared_vram_mb()
             except Exception:
                 pass
 
