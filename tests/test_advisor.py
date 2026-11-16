@@ -114,5 +114,20 @@ class AdvisorRulesTest(unittest.TestCase):
         self.assertEqual(events[0][0], "xpu_advisor.alert")
 
 
+    def test_fp8_diffusion_detection_and_log_rule(self):
+        env = _base_env(
+            has_loaded_fp8_diffusion=True,
+            loaded_fp8_model_names="MiniMaxH3",
+        )
+        findings = evaluate_environment(env, self.rules)
+        fp8_items = [f for f in findings if f["id"] == "env_fp8_diffusion_loaded"]
+        self.assertEqual(len(fp8_items), 1)
+        self.assertIn("MiniMaxH3", fp8_items[0]["title"])
+        self.assertFalse(fp8_items[0]["toast"])
+
+        hits = match_log_message("Selected mixed precision dtype float8_e4m3fn", _base_env(), self.rules)
+        self.assertEqual([h["id"] for h in hits], ["log_fp8_emulated_ops"])
+
+
 if __name__ == "__main__":
     unittest.main()

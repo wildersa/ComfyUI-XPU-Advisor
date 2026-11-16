@@ -91,6 +91,19 @@
       "tip": "XPU memory headroom is tight and --reserve-vram is unset. If you hit OOM during VAE/sampling, try adding --reserve-vram 2."
     },
     {
+      "id": "env_fp8_diffusion_loaded",
+      "scope": "env",
+      "exclusive_group": "fp8_quant",
+      "severity": "info",
+      "toast": false,
+      "when": {
+        "xpu_available": true,
+        "has_loaded_fp8_diffusion": true
+      },
+      "title": "FP8 diffusion weights active ({loaded_fp8_model_names})",
+      "tip": "Intel Arc Battlemage (Xe2) executes FP8 via dequantization/emulation rather than native XMX INT8. If an int8_convrot variant exists for this model, switching to it usually delivers higher it/s and lower VRAM."
+    },
+    {
       "id": "log_oom_no_dynamic_vram",
       "scope": "log",
       "exclusive_group": "xpu_oom",
@@ -182,6 +195,20 @@
       "when": {},
       "title": "Experimental CUTE BMG route enabled",
       "tip": "OMNI_ATTN_BACKEND=cute took the experimental BMG D128 route. If you observe visual artifacts, set OMNI_ATTN_BACKEND=torch and restart ComfyUI."
+    },
+    {
+      "id": "log_fp8_emulated_ops",
+      "scope": "log",
+      "exclusive_group": "fp8_quant",
+      "severity": "info",
+      "toast": false,
+      "cooldown_seconds": 300,
+      "pattern": "fp8_scaled|float8_e4m3fn|float8_e5m2",
+      "when": {
+        "xpu_available": true
+      },
+      "title": "FP8 quantization detected in logs",
+      "tip": "FP8 weights run via dequantization/emulation on Intel Arc (no dedicated FP8 XMX hardware). Prefer an int8_convrot variant when available for faster steps and lower VRAM."
     }
   ]
 }

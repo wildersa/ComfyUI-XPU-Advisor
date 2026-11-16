@@ -72,6 +72,52 @@ def _detect_custom_nodes(custom_nodes_dirs: list[Path] | None = None) -> dict[st
     }
 
 
+def _is_fp8_dtype(dtype: Any, torch_mod: Any) -> bool:
+    fp8_types = tuple(
+        t for t in (
+            getattr(torch_mod, "float8_e4m3fn", None),
+            getattr(torch_mod, "float8_e5m2", None),
+        )
+        if t is not None
+    )
+    return dtype in fp8_types if fp8_types else False
+
+
+def _detect_loaded_fp8_models(torch_mod: Any) -> tuple[bool, str]:
+    """Detect loaded diffusion models whose weights rely on emulated FP8."""
+    mm = sys.modules.get("comfy.model_management")
+    loaded_list = getattr(mm, "current_loaded_models", None)
+    if not loaded_list or torch_mod is None:
+        return False, ""
+
+    names: list[str] = []
+    skip_markers = ("CLIP", "TEModel", "TextEncoder", "VAE", "Autoencoder")
+    for entry in loaded_list:
+        try:
+            if callable(getattr(entry, "is_dead", None)) and entry.is_dead():
+                continue
+            patcher = getattr(entry, "model", None)
+            inner = getattr(patcher, "model", None)
+            if inner is None:
+                continue
+            cls_name = type(inner).__name__
+            if any(marker.lower() in cls_name.lower() for marker in skip_markers):
+                continue
+            diff_mod = getattr(inner, "diffusion_model", inner)
+            is_fp8 = False
+            for param in diff_mod.parameters():
+                layout = str(getattr(param, "_layout_cls", ""))
+                if _is_fp8_dtype(getattr(param, "dtype", None), torch_mod) or "fp8" in layout.lower() or "float8" in layout.lower():
+                    is_fp8 = True
+                    break
+            if is_fp8 and cls_name not in names:
+                names.append(cls_name)
+        except Exception:
+            continue
+
+    return bool(names), ", ".join(names)
+
+
 def collect_environment(custom_nodes_dirs: list[Path] | None = None) -> dict[str, Any]:
     """Inspect current Python, PyTorch XPU, CLI flags, VRAM, and packages safely."""
     py_ver = f"{sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}"
@@ -93,6 +139,8 @@ def collect_environment(custom_nodes_dirs: list[Path] | None = None) -> dict[str
         "aimdo_xpu_version": _package_version("comfy-aimdo-xpu-runtime"),
         "kitchen_xpu_version": _package_version("comfy-kitchen-xpu-runtime"),
         "kitchen_xpu_available": False,
+        "has_loaded_fp8_diffusion": False,
+        "loaded_fp8_model_names": "",
     }
 
     snapshot.update(_detect_custom_nodes(custom_nodes_dirs))
@@ -141,6 +189,10 @@ def collect_environment(custom_nodes_dirs: list[Path] | None = None) -> dict[str
             )
         except Exception:
             pass
+
+    has_fp8, fp8_names = _detect_loaded_fp8_models(torch_mod)
+    snapshot["has_loaded_fp8_diffusion"] = has_fp8
+    snapshot["loaded_fp8_model_names"] = fp8_names
 
     return snapshot
 
