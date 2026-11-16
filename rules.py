@@ -1,4 +1,4 @@
-"""Declarative JSON condition engine and environment snapshot collector."""
+"""Deterministic rule evaluator and environment snapshot collector."""
 
 from __future__ import annotations
 

@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-xpu-advisor"
-description = "Live Intel Arc (XPU) hardware & workflow diagnostics advisor for ComfyUI. Uses declarative JSON rules to flag VRAM OOM causes, missing DynamicVRAM/reserve-vram flags, CUDA-only workflow incompatibilities, and extension fallbacks with actionable UI alerts."
-version = "0.1.0"
+description = "Live Intel Arc (XPU) performance advisor for ComfyUI. Runs deterministic checks against your active environment, loaded models, and runtime logs to flag unoptimized settings, FP8 emulation bottlenecks, Windows Shared GPU Memory spills, OOM causes, and CUDA-only incompatibilities directly in the UI."
+version = "0.1.1"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
 dependencies = []
