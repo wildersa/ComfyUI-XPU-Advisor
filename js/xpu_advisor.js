@@ -160,8 +160,8 @@ class AdvisorModal {
             this.onSnapshotChange?.(snap);
             pushToast({
                 severity: "info",
-                title: "XPU Advisor: rules.json recarregado",
-                tip: `${snap.rules_count} regras ativas carregadas.`,
+                title: "XPU Advisor: rules.json reloaded",
+                tip: `Loaded ${snap.rules_count} active rules.`,
             });
         }
     }

@@ -10,8 +10,8 @@
       "when": {
         "xpu_available": false
       },
-      "title": "Intel XPU indisponível no PyTorch",
-      "tip": "PyTorch XPU não foi detectado (torch={torch_version}). No Windows com Intel Arc, instale torch==2.13.0+xpu no Python 3.13 e verifique o driver Intel Arc."
+      "title": "Intel XPU unavailable in PyTorch",
+      "tip": "PyTorch XPU is not available (torch={torch_version}). On Windows with Intel Arc, install torch==2.13.0+xpu on Python 3.13 and check your Intel Arc GPU driver."
     },
     {
       "id": "env_torch_version_mismatch",
@@ -24,8 +24,8 @@
         "xpu_available": true,
         "torch_version": { "not_prefix": "2.13.0+xpu" }
       },
-      "title": "Versão de PyTorch diferente de 2.13.0+xpu",
-      "tip": "Detectado torch=={torch_version} (Python {python_version}). Os binários Windows da extensão ComfyUI-Intel-Arc-XPU exigem Python 3.13 + torch==2.13.0+xpu."
+      "title": "PyTorch version differs from 2.13.0+xpu",
+      "tip": "Detected torch=={torch_version} (Python {python_version}). Bundled Windows binaries for ComfyUI-Intel-Arc-XPU require Python 3.13 + torch==2.13.0+xpu."
     },
     {
       "id": "env_conflicting_xpu_backend",
@@ -35,8 +35,8 @@
       "when": {
         "has_legacy_xpu_backend": true
       },
-      "title": "Extensão conflitante detectada (comfyui-xpu-backend)",
-      "tip": "A pasta custom_nodes/comfyui-xpu-backend pode conflitar com o ComfyUI-Intel-Arc-XPU. Remova ou desative a extensão antiga e reinicie."
+      "title": "Conflicting extension detected (comfyui-xpu-backend)",
+      "tip": "custom_nodes/comfyui-xpu-backend can conflict with ComfyUI-Intel-Arc-XPU. Remove or disable the legacy extension and restart ComfyUI."
     },
     {
       "id": "env_missing_omnixpu_extension",
@@ -48,8 +48,8 @@
         "xpu_available": true,
         "omnixpu_extension_present": false
       },
-      "title": "ComfyUI rodando sem aceleração ComfyUI-Intel-Arc-XPU",
-      "tip": "Instale https://github.com/wildersa/ComfyUI-Intel-Arc-XPU para habilitar kernels nativos SYCL/oneDNN, comfy-kitchen XPU (INT8/FP8/ConvRot) e DynamicVRAM no Windows."
+      "title": "Running ComfyUI without ComfyUI-Intel-Arc-XPU acceleration",
+      "tip": "Install https://github.com/wildersa/ComfyUI-Intel-Arc-XPU to enable native SYCL/oneDNN kernels, comfy-kitchen XPU backend (INT8/FP8/ConvRot), and Windows DynamicVRAM."
     },
     {
       "id": "env_missing_omni_kernel",
@@ -62,8 +62,8 @@
         "omnixpu_extension_present": true,
         "omni_kernel_version": { "is_null": true }
       },
-      "title": "Binários nativos XPU (omni_xpu_kernel) ainda não instalados",
-      "tip": "A extensão Python está presente, mas falta instalar os binários no .venv. Conclua executando install.ps1 ou install.py em ComfyUI-Intel-Arc-XPU."
+      "title": "Native XPU binaries (omni_xpu_kernel) are not installed yet",
+      "tip": "The Python extension is present, but its native binaries are missing from this .venv. Complete setup by running install.ps1 or install.py from ComfyUI-Intel-Arc-XPU."
     },
     {
       "id": "env_dynamic_vram_disabled",
@@ -74,8 +74,8 @@
         "xpu_available": true,
         "dynamic_vram_enabled": false
       },
-      "title": "DynamicVRAM está desativado",
-      "tip": "Para modelos pesados/vídeo que ultrapassam a VRAM livre, adicione --enable-dynamic-vram nos argumentos de inicialização."
+      "title": "DynamicVRAM is disabled",
+      "tip": "For heavy/video workflows that exceed free VRAM, add --enable-dynamic-vram to ComfyUI launch arguments."
     },
     {
       "id": "env_vram_headroom_tight",
@@ -87,8 +87,8 @@
         "free_vram_ratio": { "lt": 0.08 },
         "reserve_vram_gb": { "is_null": true }
       },
-      "title": "VRAM livre abaixo de 8% ({free_vram_mb} MB / {total_vram_mb} MB)",
-      "tip": "A memória da XPU está muito apertada e --reserve-vram não está definido. Se ocorrer OOM no VAE/sampling, tente adicionar --reserve-vram 2."
+      "title": "Free XPU VRAM below 8% ({free_vram_mb} MB / {total_vram_mb} MB)",
+      "tip": "XPU memory headroom is tight and --reserve-vram is unset. If you hit OOM during VAE/sampling, try adding --reserve-vram 2."
     },
     {
       "id": "log_oom_no_dynamic_vram",
@@ -101,8 +101,8 @@
       "when": {
         "dynamic_vram_enabled": false
       },
-      "title": "Faltou VRAM na XPU (DynamicVRAM desativado)",
-      "tip": "Ative --enable-dynamic-vram nas flags de inicialização do ComfyUI para habilitar offloading de pesos na XPU."
+      "title": "XPU Out of Memory (DynamicVRAM disabled)",
+      "tip": "Add --enable-dynamic-vram to your ComfyUI launch arguments to enable XPU weight offloading."
     },
     {
       "id": "log_oom_low_reserve_vram",
@@ -116,8 +116,8 @@
         "dynamic_vram_enabled": true,
         "reserve_vram_gb": { "is_null": true }
       },
-      "title": "Pico de memória causou OOM com DynamicVRAM",
-      "tip": "DynamicVRAM está ativo sem margem extra (--reserve-vram). Adicione --reserve-vram 2 (ou 4 em vídeo pesado) para guardar folga para ativações do KSampler/VAE."
+      "title": "Memory spike caused OOM under DynamicVRAM",
+      "tip": "DynamicVRAM is enabled without extra headroom (--reserve-vram). Add --reserve-vram 2 (or 4 for heavy video) to leave room for KSampler/VAE activations."
     },
     {
       "id": "log_oom_general",
@@ -130,8 +130,8 @@
       "when": {
         "dynamic_vram_enabled": true
       },
-      "title": "Faltou VRAM na XPU durante a execução",
-      "tip": "Mesmo com DynamicVRAM + --reserve-vram {reserve_vram_gb}, houve pico de memória. Tente reduzir resolução/frames, usar pesos INT8/FP8 ou subir --reserve-vram."
+      "title": "XPU Out of Memory during execution",
+      "tip": "Even with DynamicVRAM + --reserve-vram {reserve_vram_gb}, allocation spiked past free VRAM. Try lowering resolution/frames, using INT8/FP8 weights, or increasing --reserve-vram."
     },
     {
       "id": "log_cuda_attention_backend",
@@ -142,8 +142,8 @@
       "cooldown_seconds": 60,
       "pattern": "Attention backend 'comfy kitchen attention' is unavailable",
       "when": {},
-      "title": "Workflow configurado para atenção exclusiva de CUDA",
-      "tip": "Este workflow veio de um setup NVIDIA ('comfy kitchen attention'). Troque ModelAttentionBackend para 'pytorch attention' no workflow."
+      "title": "Workflow configured for CUDA-only attention",
+      "tip": "This workflow originated on NVIDIA ('comfy kitchen attention'). Switch ModelAttentionBackend to 'pytorch attention' in the workflow."
     },
     {
       "id": "log_cuda_only_runtime",
@@ -156,8 +156,8 @@
       "when": {
         "xpu_available": true
       },
-      "title": "Nó ou biblioteca tentando usar CUDA em GPU Intel XPU",
-      "tip": "Algum custom node/nó do workflow chamou CUDA direto (ex.: SageAttention, FlashAttention ou sparse attention CUDA). Substitua pelo nó padrão PyTorch."
+      "title": "Node or library attempted to use CUDA on Intel XPU",
+      "tip": "A workflow node/extension called CUDA directly (for example SageAttention, FlashAttention, or CUDA sparse attention). Replace or bypass it with standard PyTorch attention."
     },
     {
       "id": "log_omnixpu_fallback",
@@ -168,8 +168,8 @@
       "cooldown_seconds": 120,
       "pattern": "DynamicVRAM boundary trim conflict|\\[OmniXPU\\].*: FAILED",
       "when": {},
-      "title": "Conflito detectado em patch do OmniXPU (usando original)",
-      "tip": "Uma atualização do ComfyUI mudou uma função interna e o OmniXPU voltou para o comportamento original com segurança. Verifique atualizações em ComfyUI-Intel-Arc-XPU."
+      "title": "OmniXPU patch conflict detected (using stock fallback)",
+      "tip": "A ComfyUI update changed an internal hook, so OmniXPU safely fell back to stock ComfyUI behavior. Check ComfyUI-Intel-Arc-XPU for updates."
     },
     {
       "id": "log_experimental_cute_route",
@@ -180,8 +180,8 @@
       "cooldown_seconds": 300,
       "pattern": "experimental capability-driven BMG D128 CUTE route enabled",
       "when": {},
-      "title": "Rota experimental CUTE BMG ativada",
-      "tip": "OMNI_ATTN_BACKEND=cute ativou a rota experimental BMG D128. Se notar artefatos visuais na imagem/vídeo, troque OMNI_ATTN_BACKEND para 'torch' e reinicie."
+      "title": "Experimental CUTE BMG route enabled",
+      "tip": "OMNI_ATTN_BACKEND=cute took the experimental BMG D128 route. If you observe visual artifacts, set OMNI_ATTN_BACKEND=torch and restart ComfyUI."
     }
   ]
 }

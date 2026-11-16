@@ -49,7 +49,7 @@ class AdvisorRulesTest(unittest.TestCase):
         findings = evaluate_environment(_base_env(), self.rules)
         self.assertEqual(findings, [])
 
-    def test_sem_melhorias_environment_flags_missing_omnixpu_and_dynamic_vram(self):
+    def test_stock_xpu_environment_flags_missing_omnixpu_and_dynamic_vram(self):
         env = _base_env(
             omnixpu_extension_present=False,
             omni_kernel_version=None,

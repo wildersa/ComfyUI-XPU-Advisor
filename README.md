@@ -38,7 +38,7 @@ Example:
     "dynamic_vram_enabled": true,
     "reserve_vram_gb": { "is_null": true }
   },
-  "title": "Pico de memória causou OOM com DynamicVRAM",
-  "tip": "Adicione --reserve-vram 2 (ou 4 em vídeo pesado) para guardar folga para ativações."
+  "title": "Memory spike caused OOM under DynamicVRAM",
+  "tip": "Add --reserve-vram 2 (or 4 for heavy video) to leave headroom for activations."
 }
 ```
