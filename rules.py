@@ -31,6 +31,12 @@ def load_rules(rules_path: Path | None = None) -> list[dict[str, Any]]:
         pattern = rule.get("pattern")
         if pattern:
             rule["_compiled_pattern"] = re.compile(pattern, re.IGNORECASE)
+        cls_pat = rule.get("class_pattern")
+        if cls_pat:
+            rule["_compiled_class_pattern"] = re.compile(cls_pat, re.IGNORECASE)
+        val_pat = rule.get("value_pattern")
+        if val_pat:
+            rule["_compiled_value_pattern"] = re.compile(val_pat, re.IGNORECASE)
         compiled.append(rule)
     return compiled
 
@@ -379,4 +385,194 @@ def match_log_message(
             finding["cooldown_seconds"] = float(rule.get("cooldown_seconds", 60))
             finding["matched_log"] = message.strip()[:400]
             findings.append(finding)
+    return findings
+
+
+_RE_WF_MODEL_FILE = re.compile(
+    r"([A-Za-z0-9_.\-\\/]+?\.(?:safetensors|ckpt|gguf|pt|pth|bin|sft|onnx))\b",
+    re.IGNORECASE,
+)
+_SKIP_UI_NODE_TYPES = {"Note", "MarkdownNote", "Reroute", "PrimitiveNode"}
+
+
+def _clean_basename(raw_val: str) -> str:
+    cleaned = str(raw_val).strip().strip("'\"")
+    if not cleaned:
+        return ""
+    return cleaned.replace("\\", "/").rsplit("/", 1)[-1]
+
+
+def _flatten_widget_strings(obj: Any) -> list[str]:
+    out: list[str] = []
+    if isinstance(obj, (str, int, float, bool)):
+        s = str(obj).strip()
+        if s:
+            out.append(s)
+    elif isinstance(obj, list):
+        for item in obj:
+            out.extend(_flatten_widget_strings(item))
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            out.extend(_flatten_widget_strings(v))
+    return out
+
+
+def extract_workflow_nodes(workflow_data: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Normalize active nodes from either Frontend UI workflow JSON (including subgraphs) or API prompt JSON."""
+    if not isinstance(workflow_data, dict):
+        return []
+
+    nodes_out: list[dict[str, Any]] = []
+
+    # Case 1: Frontend UI workflow format ({"nodes": [...], "definitions": {"subgraphs": [...]}})
+    if isinstance(workflow_data.get("nodes"), list):
+        def _collect_ui_nodes(ui_nodes: list[Any], sg_prefix: str = "") -> None:
+            for item in ui_nodes:
+                if not isinstance(item, dict):
+                    continue
+                mode = item.get("mode", 0)
+                if mode in (2, 4):  # Muted or Bypassed
+                    continue
+                ctype = str(item.get("type") or "").strip()
+                if not ctype or ctype in _SKIP_UI_NODE_TYPES:
+                    continue
+                raw_id = str(item.get("id") or "")
+                title = str(item.get("title") or "").strip()
+                label_prefix = f"#{raw_id}" if not sg_prefix else f"#{raw_id} [{sg_prefix}]"
+                if title and title != ctype:
+                    node_label = f"{label_prefix} · {ctype} ({title})"
+                else:
+                    node_label = f"{label_prefix} · {ctype}"
+
+                vals = _flatten_widget_strings(item.get("widgets_values"))
+                values_text = " | ".join(vals)
+                model_files: list[str] = []
+                for v in vals:
+                    for m in _RE_WF_MODEL_FILE.findall(v):
+                        b = _clean_basename(m)
+                        if b and b not in model_files:
+                            model_files.append(b)
+
+                nodes_out.append({
+                    "node_id": raw_id,
+                    "class_type": ctype,
+                    "title": title,
+                    "node_label": node_label,
+                    "values_text": values_text,
+                    "model_files": model_files,
+                })
+
+        _collect_ui_nodes(workflow_data["nodes"])
+        defs = workflow_data.get("definitions")
+        subgraphs = defs.get("subgraphs") if isinstance(defs, dict) else None
+        if isinstance(subgraphs, list):
+            for sg in subgraphs:
+                if isinstance(sg, dict) and isinstance(sg.get("nodes"), list):
+                    sg_name = str(sg.get("name") or "Subgraph").strip()
+                    _collect_ui_nodes(sg["nodes"], sg_prefix=sg_name)
+        return nodes_out
+
+    # Case 2: API prompt format ({"prompt": {id: {"class_type": ..., "inputs": ...}}} or direct dict)
+    prompt_graph = workflow_data.get("prompt") if isinstance(workflow_data.get("prompt"), dict) else workflow_data
+    if not isinstance(prompt_graph, dict):
+        return []
+
+    for raw_id, spec in prompt_graph.items():
+        if not isinstance(spec, dict) or "class_type" not in spec:
+            continue
+        ctype = str(spec.get("class_type") or "").strip()
+        if not ctype or ctype in _SKIP_UI_NODE_TYPES:
+            continue
+        node_id = str(raw_id)
+        meta = spec.get("_meta") if isinstance(spec.get("_meta"), dict) else {}
+        title = str(meta.get("title") or "").strip()
+        if title and title != ctype:
+            node_label = f"#{node_id} · {ctype} ({title})"
+        else:
+            node_label = f"#{node_id} · {ctype}"
+
+        inputs = spec.get("inputs") if isinstance(spec.get("inputs"), dict) else {}
+        scalar_vals = [
+            str(v).strip()
+            for v in inputs.values()
+            if isinstance(v, (str, int, float, bool)) and str(v).strip()
+        ]
+        values_text = " | ".join(scalar_vals)
+        model_files = []
+        for v in scalar_vals:
+            for m in _RE_WF_MODEL_FILE.findall(v):
+                b = _clean_basename(m)
+                if b and b not in model_files:
+                    model_files.append(b)
+
+        nodes_out.append({
+            "node_id": node_id,
+            "class_type": ctype,
+            "title": title,
+            "node_label": node_label,
+            "values_text": values_text,
+            "model_files": model_files,
+        })
+
+    return nodes_out
+
+
+def evaluate_workflow(
+    workflow_data: dict[str, Any] | None,
+    snapshot: dict[str, Any],
+    rules: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Evaluate all ``scope == 'workflow'`` rules against active workflow nodes."""
+    wf_nodes = extract_workflow_nodes(workflow_data)
+    if not wf_nodes:
+        return []
+
+    findings: list[dict[str, Any]] = []
+    seen_node_rules: set[tuple[str, str]] = set()
+
+    for rule in rules:
+        if rule.get("scope") != "workflow":
+            continue
+        if not conditions_match(rule.get("when", {}), snapshot):
+            continue
+        cls_re = rule.get("_compiled_class_pattern")
+        val_re = rule.get("_compiled_value_pattern")
+        if cls_re is None and val_re is None:
+            continue
+
+        for node in wf_nodes:
+            if cls_re is not None and not cls_re.search(node["class_type"]):
+                continue
+            val_match = None
+            if val_re is not None:
+                val_match = val_re.search(node["values_text"])
+                if not val_match:
+                    continue
+
+            dedup_key = (rule["id"], node["node_id"])
+            if dedup_key in seen_node_rules:
+                continue
+            seen_node_rules.add(dedup_key)
+
+            matched_val = val_match.group(0) if val_match else ""
+            target_obj = (
+                ", ".join(node["model_files"])
+                if node["model_files"]
+                else (matched_val or node["class_type"])
+            )
+
+            merged_ctx = {
+                **snapshot,
+                "class_type": node["class_type"],
+                "node_id": node["node_id"],
+                "node_label": node["node_label"],
+                "matched_value": matched_val,
+                "target_object": target_obj,
+            }
+            finding = render_finding(rule, merged_ctx)
+            finding["node_id"] = node["node_id"]
+            finding["node_label"] = node["node_label"]
+            finding["target_object"] = target_obj
+            findings.append(finding)
+
     return findings

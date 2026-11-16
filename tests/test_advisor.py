@@ -12,7 +12,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from advisor import XPUAdvisor
-from rules import evaluate_environment, load_rules, match_log_message
+from rules import evaluate_environment, evaluate_workflow, load_rules, match_log_message
 
 
 def _base_env(**overrides):
@@ -239,6 +239,64 @@ class AdvisorRulesTest(unittest.TestCase):
         self.assertEqual(
             fp8_env["loaded_fp8_model_names"],
             "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors (WAN21)",
+        )
+
+    def test_workflow_node_audit_rules_detect_cuda_and_gguf(self):
+        ui_workflow = {
+            "nodes": [
+                {
+                    "id": 226,
+                    "type": "UnetLoaderGGUF",
+                    "mode": 0,
+                    "widgets_values": ["Wan2.2-I2V-A14B-HighNoise-Q3_K_S.gguf"],
+                },
+                {
+                    "id": 227,
+                    "type": "UnetLoaderGGUF",
+                    "mode": 4,  # Bypassed -> should be ignored
+                    "widgets_values": ["Wan2.2-I2V-A14B-LowNoise-Q3_K_S.gguf"],
+                },
+            ],
+            "definitions": {
+                "subgraphs": [
+                    {
+                        "name": "Character Replace",
+                        "nodes": [
+                            {
+                                "id": 328,
+                                "type": "OnnxDetectionModelLoader",
+                                "mode": 0,
+                                "widgets_values": [
+                                    "vitpose-l-wholebody.onnx",
+                                    "yolov10m.onnx",
+                                    "CUDAExecutionProvider",
+                                ],
+                            },
+                            {
+                                "id": 324,
+                                "type": "DownloadAndLoadSAM2Model",
+                                "mode": 0,
+                                "widgets_values": [
+                                    "sam2.1_hiera_base_plus.safetensors",
+                                    "video",
+                                    "cuda",
+                                    "fp16",
+                                ],
+                            },
+                        ],
+                    }
+                ]
+            },
+        }
+        findings = evaluate_workflow(ui_workflow, _base_env(), self.rules)
+        by_rule_node = {(f["id"], f["node_id"]): f for f in findings}
+        self.assertIn(("wf_gguf_loader", "226"), by_rule_node)
+        self.assertNotIn(("wf_gguf_loader", "227"), by_rule_node)
+        self.assertIn(("wf_onnx_cuda_provider", "328"), by_rule_node)
+        self.assertIn(("wf_node_device_cuda", "324"), by_rule_node)
+        self.assertEqual(
+            by_rule_node[("wf_gguf_loader", "226")]["target_object"],
+            "Wan2.2-I2V-A14B-HighNoise-Q3_K_S.gguf",
         )
 
 

@@ -52,6 +52,24 @@ class XPUAdvisorReport:
                     lines.append(f"  {ctx}")
                 lines.append(f"  Tip: {item['tip']}")
 
+        wf_advisories = snap.get("workflow_advisories") or []
+        if wf_advisories:
+            lines.append("")
+            lines.append("--- Workflow Node Advisories ---")
+            for item in wf_advisories:
+                lines.append(f"[{item['severity'].upper()}] {item['title']}")
+                if item.get("node_label") or item.get("target_object"):
+                    ctx = " | ".join(
+                        p
+                        for p in (
+                            f"Node: {item['node_label']}" if item.get("node_label") else "",
+                            f"Model/Object: {item['target_object']}" if item.get("target_object") else "",
+                        )
+                        if p
+                    )
+                    lines.append(f"  {ctx}")
+                lines.append(f"  Tip: {item['tip']}")
+
         alerts = snap["runtime_alerts"]
         if alerts:
             lines.append("")

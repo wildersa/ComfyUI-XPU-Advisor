@@ -16,6 +16,22 @@ function apiFetch(path, options = {}) {
     return fetch(path, options);
 }
 
+function fetchAdvisorSnapshot() {
+    try {
+        if (app?.graph && typeof app.graph.serialize === "function") {
+            const wf = app.graph.serialize();
+            return apiFetch("/xpu_advisor/status", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ workflow: wf }),
+            });
+        }
+    } catch {
+        // Fall back to GET if canvas graph is not ready yet.
+    }
+    return apiFetch("/xpu_advisor/status");
+}
+
 function pushToast(item) {
     const toast = app?.extensionManager?.toast;
     if (!toast) {
@@ -178,7 +194,7 @@ class AdvisorModal {
 
     async refresh() {
         try {
-            const resp = await apiFetch("/xpu_advisor/status");
+            const resp = await fetchAdvisorSnapshot();
             if (resp.ok) {
                 const snap = await resp.json();
                 this.render(snap);
@@ -349,13 +365,18 @@ class AdvisorModal {
         };
 
         appendSection("Environment & Configuration", snap.advisories, "Environment looks healthy.");
+        appendSection("Workflow Node Audit", snap.workflow_advisories, "No unoptimized or CUDA-hardcoded nodes found in this workflow.");
         appendSection("Live Runtime Alerts", snap.runtime_alerts, "No runtime issues detected yet.");
     }
 }
 
 async function mountBadge(modal) {
     const labelFor = (snap) => {
-        const items = [...(snap?.advisories || []), ...(snap?.runtime_alerts || [])];
+        const items = [
+            ...(snap?.advisories || []),
+            ...(snap?.workflow_advisories || []),
+            ...(snap?.runtime_alerts || []),
+        ];
         const important = items.filter((i) => i.severity === "error" || i.severity === "warn");
         return important.length > 0 ? `XPU Advisor (${important.length})` : "XPU Advisor";
     };
@@ -433,16 +454,17 @@ app.registerExtension({
 
         const syncStatus = async () => {
             try {
-                const resp = await apiFetch("/xpu_advisor/status");
+                const resp = await fetchAdvisorSnapshot();
                 if (!resp.ok) {
                     return;
                 }
                 const snap = await resp.json();
                 latestSnap = snap;
                 updateBadge(snap);
-                for (const item of snap.advisories || []) {
-                    if (item.toast && !seenEnvToasts.has(item.id)) {
-                        seenEnvToasts.add(item.id);
+                for (const item of [...(snap.advisories || []), ...(snap.workflow_advisories || [])]) {
+                    const toastKey = `${item.id}:${item.node_id || ""}`;
+                    if (item.toast && !seenEnvToasts.has(toastKey)) {
+                        seenEnvToasts.add(toastKey);
                         pushToast(item);
                     }
                 }
@@ -454,6 +476,8 @@ app.registerExtension({
             }
         };
 
+        this._syncAdvisorStatus = syncStatus;
+
         api.addEventListener("execution_success", () => {
             syncStatus();
         });
@@ -462,5 +486,10 @@ app.registerExtension({
         });
 
         await syncStatus();
+    },
+    async afterConfigureGraph() {
+        if (typeof this._syncAdvisorStatus === "function") {
+            setTimeout(() => this._syncAdvisorStatus(), 250);
+        }
     },
 });

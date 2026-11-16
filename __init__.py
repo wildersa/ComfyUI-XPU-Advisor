@@ -52,6 +52,17 @@ def register_routes(advisor=None) -> bool:
         async def xpu_advisor_status(request):
             return web.json_response(target.get_snapshot())
 
+        @routes.post("/xpu_advisor/status")
+        async def xpu_advisor_status_post(request):
+            wf_data = None
+            try:
+                body = await request.json()
+                if isinstance(body, dict):
+                    wf_data = body.get("workflow") if isinstance(body.get("workflow"), dict) else body
+            except Exception:
+                wf_data = None
+            return web.json_response(target.get_snapshot(workflow_data=wf_data))
+
         @routes.post("/xpu_advisor/clear")
         async def xpu_advisor_clear(request):
             target.clear_runtime_alerts()

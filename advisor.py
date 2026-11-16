@@ -12,9 +12,9 @@ from pathlib import Path
 from typing import Any, Callable
 
 try:
-    from .rules import collect_environment, evaluate_environment, load_rules, match_log_message
+    from .rules import collect_environment, evaluate_environment, evaluate_workflow, load_rules, match_log_message
 except ImportError:
-    from rules import collect_environment, evaluate_environment, load_rules, match_log_message
+    from rules import collect_environment, evaluate_environment, evaluate_workflow, load_rules, match_log_message
 
 
 MAX_RUNTIME_ALERTS = 50
@@ -70,11 +70,17 @@ class XPUAdvisor:
         self._last_staged_files: list[str] = []
         self._class_to_models: dict[str, list[str]] = {}
         self._class_to_node: dict[str, str] = {}
+        self._latest_workflow: dict[str, Any] | None = None
 
     def reload_rules(self) -> int:
         with self._lock:
             self.rules = load_rules(self.rules_path)
             return len(self.rules)
+
+    def update_workflow(self, workflow_data: dict[str, Any] | None) -> None:
+        if isinstance(workflow_data, dict):
+            with self._lock:
+                self._latest_workflow = workflow_data
 
     def record_prompt(self, prompt_data: dict[str, Any] | None) -> None:
         """Index node IDs, class types, titles, and model filenames from a ComfyUI prompt."""
@@ -127,6 +133,7 @@ class XPUAdvisor:
         if not nodes:
             return
         with self._lock:
+            self._latest_workflow = prompt_graph
             self._prompt_nodes = nodes
             self._file_to_node.update(file_to_node)
             self._node_to_files.update(node_to_files)
@@ -374,14 +381,21 @@ class XPUAdvisor:
         node_label = self._format_node_label(resolved_node_id)
         return resolved_node_id, node_label, target_object
 
-    def get_snapshot(self, custom_nodes_dirs: list[Path] | None = None) -> dict[str, Any]:
-        """Return environment telemetry, env advisories, and live runtime alerts."""
+    def get_snapshot(
+        self,
+        custom_nodes_dirs: list[Path] | None = None,
+        workflow_data: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Return environment telemetry, env advisories, workflow node advisories, and live runtime alerts."""
         self._sync_from_prompt_server()
+        if isinstance(workflow_data, dict):
+            self.update_workflow(workflow_data)
         env = collect_environment(custom_nodes_dirs=custom_nodes_dirs)
         with self._lock:
             fp8_node_id, fp8_node_label, fp8_target = self._enrich_fp8_context_locked(env)
             rules_copy = list(self.rules)
             runtime_alerts = list(self._runtime_alerts)
+            wf_target = workflow_data if isinstance(workflow_data, dict) else self._latest_workflow
         advisories = evaluate_environment(env, rules_copy)
         for item in advisories:
             if item.get("id") == "env_fp8_diffusion_loaded":
@@ -391,9 +405,11 @@ class XPUAdvisor:
                     item["node_label"] = fp8_node_label
                 if fp8_target:
                     item["target_object"] = fp8_target
+        workflow_advisories = evaluate_workflow(wf_target, env, rules_copy)
         return {
             "env": env,
             "advisories": advisories,
+            "workflow_advisories": workflow_advisories,
             "runtime_alerts": runtime_alerts,
             "rules_count": len(rules_copy),
         }

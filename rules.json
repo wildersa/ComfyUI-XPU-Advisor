@@ -98,11 +98,12 @@
       "toast": false,
       "when": {
         "xpu_available": true,
+        "dynamic_vram_enabled": false,
         "free_vram_ratio": { "lt": 0.08 },
         "reserve_vram_gb": { "is_null": true }
       },
       "title": "Free XPU VRAM below 8% ({free_vram_mb} MB / {total_vram_mb} MB)",
-      "tip": "XPU memory headroom is tight and --reserve-vram is unset. If you hit OOM during VAE/sampling, try adding --reserve-vram 2."
+      "tip": "XPU memory headroom is tight with DynamicVRAM disabled. Enable --enable-dynamic-vram (or add --reserve-vram 2 if you hit OOM during VAE/sampling)."
     },
     {
       "id": "env_shared_vram_spill_no_dyn",
@@ -293,6 +294,94 @@
       },
       "title": "Wan 2.2 running without 4-step LightX2V LoRA (0 patches attached)",
       "tip": "WAN21 loaded with 0 LoRA patches attached. In the built-in Wan 2.2 template, the 4-step LightX2V LoRA group is bypassed by default, running 20 steps at cfg=3.5 (~11.5 min on Arc B70). For ~80–95s generation, un-bypass the 4-step LoRA group and set steps=4 (2+2) with cfg=1.0."
+    },
+    {
+      "id": "wf_onnx_cuda_provider",
+      "scope": "workflow",
+      "severity": "error",
+      "toast": true,
+      "value_pattern": "CUDAExecutionProvider|TensorrtExecutionProvider",
+      "when": {
+        "xpu_available": true
+      },
+      "title": "ONNX node configured for CUDA ({class_type})",
+      "tip": "This node uses '{matched_value}', which is unavailable on Intel Arc XPU. Switch the provider widget to 'CPUExecutionProvider' (or 'DmlExecutionProvider' on Windows)."
+    },
+    {
+      "id": "wf_node_device_cuda",
+      "scope": "workflow",
+      "severity": "error",
+      "toast": true,
+      "class_pattern": "DownloadAndLoadSAM2Model|SAM2.*|Florence2.*|DepthAnything.*|Ultralytics.*",
+      "value_pattern": "\\bcuda\\b",
+      "when": {
+        "xpu_available": true
+      },
+      "title": "Preprocess/Vision node hardcoded to 'cuda' ({class_type})",
+      "tip": "This node has its device widget set to 'cuda', which raises 'Torch not compiled with CUDA enabled' on Intel Arc XPU. Change the device widget to 'cpu' (and precision to 'fp32' when running on CPU)."
+    },
+    {
+      "id": "wf_gguf_loader",
+      "scope": "workflow",
+      "severity": "warn",
+      "toast": false,
+      "class_pattern": "UnetLoaderGGUF|CLIPLoaderGGUF|LoaderGGUF",
+      "when": {
+        "xpu_available": true
+      },
+      "title": "GGUF model loader active ({class_type})",
+      "tip": "GGUF weights dequantize block-by-block in generic PyTorch and bypass native Intel Arc XPU kernels (comfy-kitchen-xpu-runtime XMX INT8/ConvRot) and DynamicVRAM staged pinning. Prefer native UNETLoader / CLIPLoader with .safetensors (int8_convrot or fp8_scaled)."
+    },
+    {
+      "id": "wf_cuda_attention_or_compile",
+      "scope": "workflow",
+      "severity": "warn",
+      "toast": false,
+      "class_pattern": "TorchCompileModel.*|.*SageAttention.*|ModelAttentionBackend",
+      "value_pattern": "comfy kitchen attention|sage|triton|cuda|inductor",
+      "when": {
+        "xpu_available": true
+      },
+      "title": "CUDA/Triton-specific node or backend in workflow ({class_type})",
+      "tip": "This node is configured for '{matched_value}'. On Intel Arc XPU, select 'pytorch attention' (accelerated automatically by OmniXPU) and bypass CUDA-only TorchCompile/SageAttention nodes."
+    },
+    {
+      "id": "wf_video_full_batch_upscale",
+      "scope": "workflow",
+      "severity": "info",
+      "toast": false,
+      "class_pattern": "^ImageUpscaleWithModel$",
+      "when": {
+        "xpu_available": true
+      },
+      "title": "Full-batch ImageUpscaleWithModel active in workflow",
+      "tip": "In multi-frame video workflows, ImageUpscaleWithModel upscales all frames at once in VRAM and can cause OOM or heavy Shared GPU Memory spills. Consider bypassing it or using a tiled upscaler for video."
+    },
+    {
+      "id": "wf_wan_animate2_gpu_cache",
+      "scope": "workflow",
+      "severity": "info",
+      "toast": false,
+      "class_pattern": "^WanAnimate2Cache$",
+      "value_pattern": "\\bgpu\\b",
+      "when": {
+        "xpu_available": true
+      },
+      "title": "WanAnimate2Cache device set to 'gpu'",
+      "tip": "WanAnimate2Cache is storing pose K/V tensors on 'gpu'. For longer driving videos or tighter VRAM headroom, switch WanAnimate2Cache device to 'cpu'."
+    },
+    {
+      "id": "wf_fp8_diffusion_in_workflow",
+      "scope": "workflow",
+      "severity": "info",
+      "toast": false,
+      "class_pattern": "^(UNETLoader|CheckpointLoaderSimple|DiffusionModelLoader)$",
+      "value_pattern": "fp8|float8",
+      "when": {
+        "xpu_available": true
+      },
+      "title": "FP8 diffusion checkpoint selected in loader ({class_type})",
+      "tip": "Intel Arc Battlemage (Xe2) emulates FP8 via dequantization rather than native XMX INT8. If an int8_convrot version of '{target_object}' is available, switching to it uses native XMX INT8 via comfy-kitchen-xpu-runtime."
     }
   ]
 }
