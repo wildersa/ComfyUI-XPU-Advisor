@@ -40,6 +40,16 @@ class XPUAdvisorReport:
         else:
             for item in advisories:
                 lines.append(f"[{item['severity'].upper()}] {item['title']}")
+                if item.get("node_label") or item.get("target_object"):
+                    ctx = " | ".join(
+                        p
+                        for p in (
+                            f"Node: {item['node_label']}" if item.get("node_label") else "",
+                            f"Model/Object: {item['target_object']}" if item.get("target_object") else "",
+                        )
+                        if p
+                    )
+                    lines.append(f"  {ctx}")
                 lines.append(f"  Tip: {item['tip']}")
 
         alerts = snap["runtime_alerts"]
@@ -48,6 +58,16 @@ class XPUAdvisorReport:
             lines.append("--- Live Runtime Alerts ---")
             for alert in alerts[:10]:
                 lines.append(f"[{alert['timestamp']}][{alert['severity'].upper()}] {alert['title']}")
+                if alert.get("node_label") or alert.get("target_object"):
+                    ctx = " | ".join(
+                        p
+                        for p in (
+                            f"Node: {alert['node_label']}" if alert.get("node_label") else "",
+                            f"Model/Object: {alert['target_object']}" if alert.get("target_object") else "",
+                        )
+                        if p
+                    )
+                    lines.append(f"  {ctx}")
                 lines.append(f"  Tip: {alert['tip']}")
 
         return ("\n".join(lines),)

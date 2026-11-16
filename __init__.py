@@ -36,6 +36,18 @@ def register_routes(advisor=None) -> bool:
         if routes is None:
             return False
 
+        add_prompt_handler = getattr(instance, "add_on_prompt_handler", None)
+        if callable(add_prompt_handler) and not getattr(instance, "_xpu_advisor_prompt_hooked", False):
+            def _on_prompt(json_data):
+                try:
+                    target.record_prompt(json_data)
+                except Exception:
+                    pass
+                return json_data
+
+            add_prompt_handler(_on_prompt)
+            setattr(instance, "_xpu_advisor_prompt_hooked", True)
+
         @routes.get("/xpu_advisor/status")
         async def xpu_advisor_status(request):
             return web.json_response(target.get_snapshot())

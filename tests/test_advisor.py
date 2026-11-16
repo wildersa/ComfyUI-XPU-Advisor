@@ -184,6 +184,63 @@ class AdvisorRulesTest(unittest.TestCase):
         self.assertNotIn("env_torch_version_mismatch", ids)
         self.assertNotIn("env_shared_vram_spill_no_dyn", ids)
 
+    def test_node_and_model_context_and_wan22_no_lora_alert(self):
+        emitted = []
+        advisor = XPUAdvisor(emitter=lambda ev, data: emitted.append((ev, data)))
+        advisor.record_prompt(
+            {
+                "prompt": {
+                    "37": {
+                        "class_type": "UNETLoader",
+                        "inputs": {
+                            "unet_name": "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors",
+                            "weight_dtype": "default",
+                        },
+                        "_meta": {"title": "Load Diffusion Model"},
+                    }
+                }
+            }
+        )
+        env = _base_env()
+        advisor.process_log_message(
+            "Model storage policy: fast_disk=True paths=['E:\\\\models\\\\wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors']",
+            env_override=env,
+            active_node_id="37",
+        )
+        advisor.process_log_message(
+            "Requested to load WAN21",
+            env_override=env,
+            active_node_id="37",
+        )
+        alerts = advisor.process_log_message(
+            "Model WAN21 prepared for dynamic VRAM loading. 13628MB Staged. 0 patches attached.",
+            env_override=env,
+            active_node_id="37",
+        )
+        self.assertEqual(len(alerts), 1)
+        alert = alerts[0]
+        self.assertEqual(alert["id"], "log_wan22_standard_no_lora")
+        self.assertEqual(alert["node_id"], "37")
+        self.assertEqual(alert["node_label"], "#37 · UNETLoader (Load Diffusion Model)")
+        self.assertEqual(
+            alert["target_object"],
+            "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors (WAN21)",
+        )
+
+        fp8_env = _base_env(has_loaded_fp8_diffusion=True, loaded_fp8_model_names="WAN21")
+        with advisor._lock:
+            node_id, node_label, target_obj = advisor._enrich_fp8_context_locked(fp8_env)
+        self.assertEqual(node_id, "37")
+        self.assertEqual(node_label, "#37 · UNETLoader (Load Diffusion Model)")
+        self.assertEqual(
+            target_obj,
+            "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors (WAN21)",
+        )
+        self.assertEqual(
+            fp8_env["loaded_fp8_model_names"],
+            "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors (WAN21)",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

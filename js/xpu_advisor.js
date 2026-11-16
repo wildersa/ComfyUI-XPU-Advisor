@@ -23,7 +23,15 @@ function pushToast(item) {
     }
     const severity = item.severity || "info";
     const summary = item.title || "XPU Advisor";
-    const detail = item.tip || "";
+    const ctxParts = [];
+    if (item.node_label) {
+        ctxParts.push(`Node ${item.node_label}`);
+    }
+    if (item.target_object) {
+        ctxParts.push(`Model ${item.target_object}`);
+    }
+    const ctxPrefix = ctxParts.length > 0 ? `[${ctxParts.join(" | ")}] ` : "";
+    const detail = `${ctxPrefix}${item.tip || ""}`;
     const life = severity === "error" ? 16000 : severity === "warn" ? 12000 : 8000;
 
     if (typeof toast.add === "function") {
@@ -31,6 +39,33 @@ function pushToast(item) {
     } else if (typeof toast.addAlert === "function") {
         toast.addAlert(`${summary}: ${detail}`);
     }
+}
+
+function focusNodeOnCanvas(rawNodeId, modal) {
+    if (!rawNodeId || !app?.graph || !app?.canvas) {
+        return false;
+    }
+    const strId = String(rawNodeId);
+    let node =
+        app.graph.getNodeById(strId) ||
+        app.graph.getNodeById(Number(strId));
+    if (!node && strId.includes(":")) {
+        const rootId = strId.split(":")[0];
+        node =
+            app.graph.getNodeById(rootId) ||
+            app.graph.getNodeById(Number(rootId));
+    }
+    if (!node) {
+        return false;
+    }
+    if (typeof app.canvas.selectNode === "function") {
+        app.canvas.selectNode(node, false);
+    }
+    if (typeof app.canvas.centerOnNode === "function") {
+        app.canvas.centerOnNode(node);
+    }
+    modal?.close();
+    return true;
 }
 
 function el(tag, style = {}, text = "") {
@@ -258,6 +293,56 @@ class AdvisorModal {
                 const prefix = item.timestamp ? `[${item.timestamp}] ` : "";
                 titleRow.appendChild(el("strong", { color: palette.text }, `${prefix}${item.title}`));
                 card.appendChild(titleRow);
+
+                if (item.node_label || item.target_object) {
+                    const metaRow = el("div", {
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "6px",
+                        marginBottom: "6px",
+                        fontSize: "11px",
+                    });
+                    if (item.node_label) {
+                        const nodeChip = el(
+                            item.node_id ? "button" : "span",
+                            {
+                                background: "rgba(255, 255, 255, 0.08)",
+                                border: "1px solid rgba(255, 255, 255, 0.18)",
+                                color: "#e6e8ee",
+                                borderRadius: "4px",
+                                padding: "2px 7px",
+                                fontSize: "11px",
+                                cursor: item.node_id ? "pointer" : "default",
+                            },
+                            `Node: ${item.node_label}`
+                        );
+                        if (item.node_id) {
+                            nodeChip.title = "Click to locate node on canvas";
+                            nodeChip.addEventListener("click", () => {
+                                focusNodeOnCanvas(item.node_id, this);
+                            });
+                        }
+                        metaRow.appendChild(nodeChip);
+                    }
+                    if (item.target_object) {
+                        const objChip = el(
+                            "span",
+                            {
+                                background: "rgba(255, 255, 255, 0.08)",
+                                border: "1px solid rgba(255, 255, 255, 0.18)",
+                                color: "#d6ebff",
+                                borderRadius: "4px",
+                                padding: "2px 7px",
+                                fontSize: "11px",
+                                fontFamily: "ui-monospace, SFMono-Regular, Consolas, monospace",
+                            },
+                            `Model / Object: ${item.target_object}`
+                        );
+                        metaRow.appendChild(objChip);
+                    }
+                    card.appendChild(metaRow);
+                }
+
                 card.appendChild(el("div", { color: "#e6e8ee", lineHeight: "1.45" }, item.tip || ""));
                 this.body.appendChild(card);
             }
@@ -275,27 +360,19 @@ async function mountBadge(modal) {
         return important.length > 0 ? `XPU Advisor (${important.length})` : "XPU Advisor";
     };
 
-    try {
-        const { ComfyButton } = await import("../../scripts/ui/components/button.js");
-        const button = new ComfyButton({
-            icon: "chip",
-            content: "XPU Advisor",
-            tooltip: "ComfyUI XPU Advisor — live Intel Arc hints & alerts",
-            action: () => modal.open(),
-            classList: "comfyui-button comfyui-menu-mobile-collapse",
-        });
-        if (app?.menu?.settingsGroup?.element) {
-            app.menu.settingsGroup.element.before(button.element);
-            return (snap) => {
-                button.element.title = labelFor(snap);
-                const span = button.element.querySelector("span.comfyui-button-content");
-                if (span) {
-                    span.textContent = labelFor(snap);
-                }
-            };
-        }
-    } catch {
-        // Fall back to lightweight floating badge on older frontends.
+    if (app?.menu?.settingsGroup?.element) {
+        const btn = el("button", {
+            cursor: "pointer",
+        }, "XPU Advisor");
+        btn.className = "comfyui-button comfyui-menu-mobile-collapse";
+        btn.title = "ComfyUI XPU Advisor — live Intel Arc hints & alerts";
+        btn.addEventListener("click", () => modal.open());
+        app.menu.settingsGroup.element.before(btn);
+        return (snap) => {
+            const text = labelFor(snap);
+            btn.title = text;
+            btn.textContent = text;
+        };
     }
 
     const pill = el("button", {

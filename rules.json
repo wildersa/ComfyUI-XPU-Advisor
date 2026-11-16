@@ -279,6 +279,20 @@
       },
       "title": "FP8 quantization detected in logs",
       "tip": "FP8 weights run via dequantization/emulation on Intel Arc (no dedicated FP8 XMX hardware). Prefer an int8_convrot variant when available for faster steps and lower VRAM."
+    },
+    {
+      "id": "log_wan22_standard_no_lora",
+      "scope": "log",
+      "exclusive_group": "wan22_mode",
+      "severity": "warn",
+      "toast": true,
+      "cooldown_seconds": 120,
+      "pattern": "Model WAN21 prepared for dynamic VRAM loading\\. .*\\b0 patches attached\\.",
+      "when": {
+        "xpu_available": true
+      },
+      "title": "Wan 2.2 running without 4-step LightX2V LoRA (0 patches attached)",
+      "tip": "WAN21 loaded with 0 LoRA patches attached. In the built-in Wan 2.2 template, the 4-step LightX2V LoRA group is bypassed by default, running 20 steps at cfg=3.5 (~11.5 min on Arc B70). For ~80–95s generation, un-bypass the 4-step LoRA group and set steps=4 (2+2) with cfg=1.0."
     }
   ]
 }
