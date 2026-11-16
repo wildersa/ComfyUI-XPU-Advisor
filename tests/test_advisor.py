@@ -58,12 +58,23 @@ class AdvisorRulesTest(unittest.TestCase):
         env = _base_env(
             omnixpu_extension_present=False,
             omni_kernel_version=None,
+            kitchen_xpu_available=False,
             dynamic_vram_enabled=False,
         )
-        ids = {f["id"] for f in evaluate_environment(env, self.rules)}
-        self.assertIn("env_missing_omnixpu_extension", ids)
-        self.assertIn("env_dynamic_vram_disabled", ids)
-        self.assertNotIn("env_missing_omni_kernel", ids)
+        findings = evaluate_environment(env, self.rules)
+        by_id = {f["id"]: f for f in findings}
+        self.assertIn("env_missing_omnixpu_extension", by_id)
+        self.assertTrue(by_id["env_missing_omnixpu_extension"]["toast"])
+        self.assertIn("env_dynamic_vram_disabled", by_id)
+        self.assertNotIn("env_missing_omni_kernel", by_id)
+        self.assertNotIn("env_kitchen_xpu_unavailable", by_id)
+
+    def test_missing_kitchen_xpu_fires_when_kernel_exists(self):
+        env = _base_env(kitchen_xpu_available=False)
+        findings = evaluate_environment(env, self.rules)
+        by_id = {f["id"]: f for f in findings}
+        self.assertIn("env_kitchen_xpu_unavailable", by_id)
+        self.assertTrue(by_id["env_kitchen_xpu_unavailable"]["toast"])
 
     def test_registry_without_binaries_flags_missing_kernel(self):
         env = _base_env(omnixpu_extension_present=True, omni_kernel_version=None)

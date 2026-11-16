@@ -42,8 +42,8 @@
       "id": "env_missing_omnixpu_extension",
       "scope": "env",
       "exclusive_group": "omnixpu_install",
-      "severity": "info",
-      "toast": false,
+      "severity": "warn",
+      "toast": true,
       "when": {
         "xpu_available": true,
         "omnixpu_extension_present": false,
@@ -65,6 +65,19 @@
       },
       "title": "Native XPU binaries (omni_xpu_kernel) are not installed yet",
       "tip": "The OmniXPU Python extension is present, but omni_xpu_kernel is missing from this Python environment. Complete binary setup for your platform (install.ps1 / install.py on Windows, or intel/llm-scaler omni stack on Linux)."
+    },
+    {
+      "id": "env_kitchen_xpu_unavailable",
+      "scope": "env",
+      "exclusive_group": "omnixpu_install",
+      "severity": "warn",
+      "toast": true,
+      "when": {
+        "xpu_available": true,
+        "kitchen_xpu_available": false
+      },
+      "title": "comfy_kitchen XPU backend is inactive",
+      "tip": "omni_xpu_kernel is present, but comfy_kitchen's 'xpu' backend is unavailable or disabled. Native INT8/W4A8/ConvRot kernels will fall back to slower PyTorch execution; check comfy-kitchen-xpu-runtime and startup logs."
     },
     {
       "id": "env_dynamic_vram_disabled",

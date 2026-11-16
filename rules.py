@@ -245,6 +245,11 @@ def collect_environment(custom_nodes_dirs: list[Path] | None = None) -> dict[str
                 pass
 
     kitchen_mod = sys.modules.get("comfy_kitchen")
+    if kitchen_mod is None:
+        try:
+            import comfy_kitchen as kitchen_mod  # noqa: WPS433
+        except Exception:
+            kitchen_mod = None
     if kitchen_mod is not None and hasattr(kitchen_mod, "list_backends"):
         try:
             xpu_backend = kitchen_mod.list_backends().get("xpu", {})
