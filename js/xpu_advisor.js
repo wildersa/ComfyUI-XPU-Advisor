@@ -10,8 +10,10 @@ const SEVERITY_COLORS = {
 };
 
 function apiFetch(path, options = {}) {
-    const fetcher = api?.fetchApi ? api.fetchApi.bind(api) : fetch;
-    return fetcher(path, options);
+    if (api && typeof api.fetchApi === "function") {
+        return api.fetchApi(path, options);
+    }
+    return fetch(path, options);
 }
 
 function pushToast(item) {
