@@ -159,6 +159,20 @@ class AdvisorRulesTest(unittest.TestCase):
         self.assertIn("env_disable_pinned_memory", dyn_ids)
         self.assertIn("env_bmg_attn_torch", dyn_ids)
 
+    def test_linux_xpu_environment_rules_work_without_windows_counters(self):
+        linux_env = _base_env(
+            platform="linux",
+            torch_version="2.12.1+xpu",
+            shared_vram_mb=None,
+            attn_backend="torch",
+            dynamic_vram_enabled=False,
+        )
+        ids = {f["id"] for f in evaluate_environment(linux_env, self.rules)}
+        self.assertIn("env_dynamic_vram_disabled", ids)
+        self.assertIn("env_bmg_attn_torch", ids)
+        self.assertNotIn("env_torch_version_mismatch", ids)
+        self.assertNotIn("env_shared_vram_spill_no_dyn", ids)
+
 
 if __name__ == "__main__":
     unittest.main()

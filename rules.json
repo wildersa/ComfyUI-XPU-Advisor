@@ -11,7 +11,7 @@
         "xpu_available": false
       },
       "title": "Intel XPU unavailable in PyTorch",
-      "tip": "PyTorch XPU is not available (torch={torch_version}). On Windows with Intel Arc, install torch==2.13.0+xpu on Python 3.13 and check your Intel Arc GPU driver."
+      "tip": "PyTorch XPU is not available (torch={torch_version}). Install a PyTorch XPU build (e.g., torch==2.13.0+xpu on Python 3.13) and check your Intel Arc GPU driver/runtime."
     },
     {
       "id": "env_torch_version_mismatch",
@@ -25,7 +25,7 @@
         "torch_version": { "not_prefix": "2.13.0+xpu" }
       },
       "title": "PyTorch version differs from 2.13.0+xpu",
-      "tip": "Detected torch=={torch_version} (Python {python_version}). Bundled Windows binaries for ComfyUI-Intel-Arc-XPU require Python 3.13 + torch==2.13.0+xpu."
+      "tip": "Detected torch=={torch_version} (Python {python_version}). Prebuilt Windows binaries for ComfyUI-Intel-Arc-XPU require Python 3.13 + torch==2.13.0+xpu."
     },
     {
       "id": "env_conflicting_xpu_backend",
@@ -36,7 +36,7 @@
         "has_legacy_xpu_backend": true
       },
       "title": "Conflicting extension detected (comfyui-xpu-backend)",
-      "tip": "custom_nodes/comfyui-xpu-backend can conflict with ComfyUI-Intel-Arc-XPU. Remove or disable the legacy extension and restart ComfyUI."
+      "tip": "custom_nodes/comfyui-xpu-backend can conflict with OmniXPU / ComfyUI-Intel-Arc-XPU. Remove or disable the legacy extension and restart ComfyUI."
     },
     {
       "id": "env_missing_omnixpu_extension",
@@ -46,10 +46,11 @@
       "toast": false,
       "when": {
         "xpu_available": true,
-        "omnixpu_extension_present": false
+        "omnixpu_extension_present": false,
+        "omni_kernel_version": { "is_null": true }
       },
-      "title": "Running ComfyUI without ComfyUI-Intel-Arc-XPU acceleration",
-      "tip": "Install https://github.com/wildersa/ComfyUI-Intel-Arc-XPU to enable native SYCL/oneDNN kernels, comfy-kitchen XPU backend (INT8/FP8/ConvRot), and Windows DynamicVRAM."
+      "title": "Running ComfyUI without native XPU acceleration",
+      "tip": "Install OmniXPU (https://github.com/intel/llm-scaler/tree/main/omni on Linux or https://github.com/wildersa/ComfyUI-Intel-Arc-XPU on Windows) to enable native SYCL/oneDNN kernels, comfy-kitchen XPU backend (INT8/FP8/ConvRot), and DynamicVRAM."
     },
     {
       "id": "env_missing_omni_kernel",
@@ -63,7 +64,7 @@
         "omni_kernel_version": { "is_null": true }
       },
       "title": "Native XPU binaries (omni_xpu_kernel) are not installed yet",
-      "tip": "The Python extension is present, but its native binaries are missing from this .venv. Complete setup by running install.ps1 or install.py from ComfyUI-Intel-Arc-XPU."
+      "tip": "The OmniXPU Python extension is present, but omni_xpu_kernel is missing from this Python environment. Complete binary setup for your platform (install.ps1 / install.py on Windows, or intel/llm-scaler omni stack on Linux)."
     },
     {
       "id": "env_dynamic_vram_disabled",
@@ -144,7 +145,7 @@
         "attn_backend": "torch"
       },
       "title": "Using PyTorch SDPA on Intel Arc Battlemage",
-      "tip": "OMNI_ATTN_BACKEND is set to 'torch' (Windows default). Setting OMNI_ATTN_BACKEND=cute on Battlemage (bmg) typically improves speed ~10% (switch back to 'torch' if visual artifacts appear)."
+      "tip": "OMNI_ATTN_BACKEND is set to 'torch' (PyTorch SDPA). Setting OMNI_ATTN_BACKEND=cute on Battlemage (bmg) typically improves speed ~10% (switch back to 'torch' if visual artifacts appear)."
     },
     {
       "id": "env_fp8_diffusion_loaded",
@@ -238,7 +239,7 @@
       "pattern": "DynamicVRAM boundary trim conflict|\\[OmniXPU\\].*: FAILED",
       "when": {},
       "title": "OmniXPU patch conflict detected (using stock fallback)",
-      "tip": "A ComfyUI update changed an internal hook, so OmniXPU safely fell back to stock ComfyUI behavior. Check ComfyUI-Intel-Arc-XPU for updates."
+      "tip": "A ComfyUI update changed an internal hook, so OmniXPU safely fell back to stock ComfyUI behavior. Check your OmniXPU / ComfyUI-Intel-Arc-XPU extension for updates."
     },
     {
       "id": "log_experimental_cute_route",

@@ -1,13 +1,13 @@
 [project]
 name = "comfyui-xpu-advisor"
-description = "Live Intel Arc (XPU) performance advisor for ComfyUI. Runs deterministic checks against your active environment, loaded models, and runtime logs to flag unoptimized settings, FP8 emulation bottlenecks, Windows Shared GPU Memory spills, OOM causes, and CUDA-only incompatibilities directly in the UI."
-version = "0.1.1"
+description = "Live Intel Arc (XPU) performance advisor for ComfyUI. Runs deterministic checks against your active environment, loaded models, and runtime logs to flag unoptimized settings, FP8 emulation bottlenecks, Shared GPU Memory spills, OOM causes, and CUDA-only incompatibilities directly in the UI."
+version = "0.1.2"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
 dependencies = []
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Operating System :: Microsoft :: Windows",
+    "Operating System :: OS Independent",
     "License :: OSI Approved :: Apache Software License",
 ]
 keywords = ["comfyui", "intel", "arc", "xpu", "diagnostics", "vram", "advisor"]

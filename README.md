@@ -1,13 +1,13 @@
 # ComfyUI-XPU-Advisor
 
-Performance and diagnostics advisor for **Intel Arc (`xpu`)** setups in ComfyUI. Runs deterministic checks over your active environment, loaded weights, and runtime logs to flag misconfigured settings, slow emulation bottlenecks, Windows Shared GPU Memory spills, OOM causes, and CUDA-only workflow incompatibilities directly in the ComfyUI UI — pure Python/JS, with zero prebuilt binaries or `exec()`/`subprocess`.
+Performance and diagnostics advisor for **Intel Arc (`xpu`)** setups in ComfyUI (Windows & Linux). Runs deterministic checks over your active environment, loaded weights, and runtime logs to flag misconfigured settings, slow emulation bottlenecks, Shared GPU Memory spills, OOM causes, and CUDA-only workflow incompatibilities directly in the ComfyUI UI — pure Python/JS, with zero prebuilt binaries or `exec()`/`subprocess`.
 
 ---
 
 ## Features
 
-- **Performance & Misconfiguration Alerts:** Flags bottlenecks you can fix immediately — e.g., emulated FP8 diffusion models when faster `int8_convrot` weights exist, PyTorch SDPA instead of CUTE on Battlemage (`OMNI_ATTN_BACKEND=cute`), Windows Shared GPU Memory spills slowing down sampling, or `--disable-pinned-memory` blocking RAM staging.
-- **Startup & Environment Checks:** Detects missing XPU runtime, `torch` version mismatch (`2.13.0+xpu`), missing `--enable-dynamic-vram`, tight VRAM headroom, missing `ComfyUI-Intel-Arc-XPU` kernels, or conflicting legacy `comfyui-xpu-backend`.
+- **Performance & Misconfiguration Alerts:** Flags bottlenecks you can fix immediately — e.g., emulated FP8 diffusion models when faster `int8_convrot` weights exist, PyTorch SDPA instead of CUTE on Battlemage (`OMNI_ATTN_BACKEND=cute`), Windows WDDM Shared GPU Memory spills slowing down sampling, or `--disable-pinned-memory` blocking RAM staging.
+- **Startup & Environment Checks:** Detects missing XPU runtime, Windows `torch==2.13.0+xpu` requirement mismatches, missing `--enable-dynamic-vram`, tight VRAM headroom, missing native XPU kernels (`omni_xpu_kernel`), or conflicting legacy `comfyui-xpu-backend`.
 - **Live Runtime Log Watcher:** Listens to ComfyUI logs in real time via a thread-safe `logging.Handler` + WebSocket (`xpu_advisor.alert`) and shows contextual toasts when issues occur (e.g. `XPU out of memory` -> tells you whether to enable `--enable-dynamic-vram` or add `--reserve-vram 2`/`4`; `comfy kitchen attention unavailable` -> tells you to switch `ModelAttentionBackend` to `pytorch attention`).
 - **UI Panel (`XPU Advisor` button):** Top-bar button & drawer showing live GPU/VRAM/Shared Memory metrics, optimization tips, runtime alert history, and hot-reload without restarting ComfyUI.
 - **Extensible Deterministic Rules ([`rules.json`](./rules.json)):** Easy to grow over time by adding new `condition -> advisory` entries without changing Python or JS.
